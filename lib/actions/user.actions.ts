@@ -26,6 +26,27 @@ export async function createUser(user: CreateUserParams) {
       }
     }
 
+    // Check if user already exists
+    const existingUser = await User.findOne({ clerkId: user.clerkId });
+    
+    if (existingUser) {
+      console.log('User already exists, updating...');
+      // Update existing user
+      const updatedUser = await User.findOneAndUpdate(
+        { clerkId: user.clerkId },
+        {
+          email: user.email,
+          username: user.username,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          photo: user.photo,
+        },
+        { new: true }
+      );
+      console.log('User updated successfully:', updatedUser._id);
+      return JSON.parse(JSON.stringify(updatedUser));
+    }
+
     console.log('Creating new user with data:', { ...user, password: '[REDACTED]' });
     console.log('MongoDB connection state:', mongoose.connection.readyState);
     
