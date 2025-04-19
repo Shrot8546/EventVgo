@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import mongoose from 'mongoose'
 
 import { connectToDatabase } from '@/lib/database'
 import User from '@/lib/database/models/user.model'
@@ -16,13 +17,38 @@ export async function createUser(user: CreateUserParams) {
     await connectToDatabase();
     console.log('Database connected successfully');
 
+    // Validate required fields
+    const requiredFields: (keyof CreateUserParams)[] = ['clerkId', 'email', 'username', 'firstName', 'lastName', 'photo'];
+    for (const field of requiredFields) {
+      if (!user[field]) {
+        console.error(`Missing required field: ${field}`);
+        throw new Error(`Missing required field: ${field}`);
+      }
+    }
+
     console.log('Creating new user with data:', { ...user, password: '[REDACTED]' });
+    console.log('MongoDB connection state:', mongoose.connection.readyState);
+    
     const newUser = await User.create(user);
     console.log('User created successfully:', newUser._id);
+    console.log('Full user document:', JSON.stringify(newUser, null, 2));
 
     return JSON.parse(JSON.stringify(newUser));
   } catch (error) {
     console.error('Error in createUser:', error);
+    console.error('Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : 'No stack trace'
+    });
+
+    // Check for MongoDB duplicate key error
+    if (error instanceof Error && 'code' in error && (error as any).code === 11000) {
+      const duplicateKey = 'keyValue' in error ? Object.keys((error as any).keyValue)[0] : 'unknown';
+      console.error('Duplicate key error:', duplicateKey);
+      throw new Error(`Duplicate key error: ${duplicateKey} already exists.`);
+    }
+
     handleError(error);
   }
 }

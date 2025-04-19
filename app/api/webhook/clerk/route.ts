@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
  
 export async function POST(req: Request) {
   console.log('Received webhook request from Clerk');
+  console.log('Request headers:', Object.fromEntries(req.headers));
  
   // You can find this in the Clerk Dashboard -> Webhooks -> choose the webhook
   const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET
@@ -62,7 +63,14 @@ export async function POST(req: Request) {
   if(eventType === 'user.created') {
     try {
       const { id, email_addresses, image_url, first_name, last_name, username } = evt.data;
-      console.log('Creating new user from webhook data:', { id, email: email_addresses[0].email_address, username, first_name, last_name });
+      console.log('Creating new user from webhook data:', { 
+        id, 
+        email: email_addresses[0].email_address, 
+        username, 
+        first_name, 
+        last_name,
+        image_url 
+      });
 
       const user = {
         clerkId: id,
@@ -73,8 +81,9 @@ export async function POST(req: Request) {
         photo: image_url,
       }
 
+      console.log('Attempting to create user with data:', user);
       const newUser = await createUser(user);
-      console.log('User created in database:', newUser?._id);
+      console.log('User creation response:', newUser);
 
       if(newUser) {
         console.log('Updating Clerk user metadata...');
@@ -89,6 +98,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'OK', user: newUser })
     } catch (error) {
       console.error('Error processing user.created webhook:', error);
+      console.error('Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : 'No stack trace'
+      });
       return new Response('Error processing user creation', { status: 500 });
     }
   }
